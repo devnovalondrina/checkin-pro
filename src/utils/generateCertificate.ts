@@ -181,7 +181,7 @@ const loadImage = async (url: string): Promise<string> => {
         reject(e)
       }
     }
-    img.onerror = (e) => reject(new Error('Failed to load image: ' + url))
+    img.onerror = () => reject(new Error('Failed to load image: ' + url))
     img.src = url
   })
 }

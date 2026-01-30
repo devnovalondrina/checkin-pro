@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { Event } from '../types'
-import { formatCPF, formatPhone } from '../utils/format'
+import { formatCPF, formatPhone, cleanCPF } from '../utils/format'
 import { CheckCircle, Loader2, UserX, ClipboardList, ArrowRight, UserPlus } from 'lucide-react'
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
@@ -80,11 +80,13 @@ export default function KioskCheckin() {
     setMessage('')
 
     try {
+      const cleanedCpf = cleanCPF(cpf)
+      
       // 1. Find attendee
       const { data: attendees, error: attError } = await supabase
         .from('attendees')
         .select('*')
-        .eq('cpf', cpf)
+        .eq('cpf', cleanedCpf)
       
       if (attError) throw attError
 
@@ -156,10 +158,12 @@ export default function KioskCheckin() {
     
     setProcessing(true)
     try {
+        const cleanedCpf = cleanCPF(cpf)
+        
         // Create attendee
         const { data: newAttendee, error: createError } = await supabase
             .from('attendees')
-            .insert([{ full_name: registerName, cpf, phone: registerPhone }])
+            .insert([{ full_name: registerName, cpf: cleanedCpf, phone: registerPhone }])
             .select()
             .single()
 

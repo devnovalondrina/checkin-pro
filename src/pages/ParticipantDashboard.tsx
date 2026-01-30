@@ -200,99 +200,13 @@ export default function ParticipantDashboard() {
       format: 'a4'
     })
 
-    if (event.certificate_template_url) {
-      try {
-        // Custom Template
-        doc.addImage(event.certificate_template_url, 'PNG', 0, 0, 297, 210)
-        
-        // Standard Centered Layout
-        doc.setTextColor(0, 0, 0)
-        doc.setFont("helvetica", "bold")
-        doc.setFontSize(24)
-        doc.text(attendee.full_name, 148.5, 95, { align: "center" }) // Center Name
-        
-        doc.setFontSize(14)
-        doc.text(`CPF: ${attendee.cpf}`, 148.5, 105, { align: "center" }) // Center CPF
-        
-        // Validation Code
-        doc.setFontSize(10)
-        doc.text(`Código: ${certCode}`, 148.5, 190, { align: "center" })
-
-      } catch (err) {
-        console.error("Error loading template", err)
-        toast.error("Erro ao carregar modelo de certificado. Usando padrão.")
-        drawDefaultCertificate(doc, attendee, event, certCode)
-      }
-    } else {
-      // Default Template
-      drawDefaultCertificate(doc, attendee, event, certCode)
+    try {
+        await drawCertificatePage(doc, attendee, event, certCode)
+        doc.save(`certificado_${event.title.replace(/\s+/g, '_').toLowerCase()}.pdf`)
+    } catch (err) {
+        console.error("Error generating certificate", err)
+        toast.error("Erro ao gerar certificado.")
     }
-
-    // Save
-    doc.save(`certificado_${event.title.replace(/\s+/g, '_').toLowerCase()}.pdf`)
-  }
-
-  const drawDefaultCertificate = (doc: jsPDF, attendee: any, event: Event, certCode: string) => {
-    // Colors
-    const primaryColor = '#4f46e5' // Indigo 600
-
-    // Border
-    doc.setDrawColor(79, 70, 229)
-    doc.setLineWidth(2)
-    doc.rect(10, 10, 277, 190)
-    
-    // Header
-    doc.setFont("helvetica", "bold")
-    doc.setTextColor(primaryColor)
-    doc.setFontSize(40)
-    doc.text("CERTIFICADO", 148.5, 40, { align: "center" })
-    
-    doc.setFontSize(16)
-    doc.setTextColor(100, 100, 100)
-    doc.text("DE PARTICIPAÇÃO", 148.5, 50, { align: "center" })
-
-    // Content
-    doc.setTextColor(0, 0, 0)
-    doc.setFont("helvetica", "normal")
-    doc.setFontSize(18)
-    doc.text("Certificamos que", 148.5, 80, { align: "center" })
-    
-    doc.setFont("helvetica", "bold")
-    doc.setFontSize(24)
-    doc.text(attendee.full_name, 148.5, 95, { align: "center" })
-    
-    doc.setFont("helvetica", "normal")
-    doc.setFontSize(18)
-    doc.text("participou do evento", 148.5, 110, { align: "center" })
-    
-    doc.setFont("helvetica", "bold")
-    doc.setFontSize(22)
-    doc.text(event.title, 148.5, 125, { align: "center" })
-    
-    // Date and Location
-    const dateStr = new Date(event.date).toLocaleDateString()
-    doc.setFont("helvetica", "normal")
-    doc.setFontSize(16)
-    doc.text(`realizado em ${dateStr}${event.location ? ` - ${event.location}` : ''}`, 148.5, 140, { align: "center" })
-
-    // Workload
-    if (event.workload > 0) {
-        doc.text(`Carga horária: ${event.workload} horas`, 148.5, 150, { align: "center" })
-    }
-
-    // Signature Line
-    doc.setDrawColor(0, 0, 0)
-    doc.setLineWidth(0.5)
-    doc.line(90, 175, 207, 175)
-    
-    doc.setFontSize(12)
-    doc.text("Organização do Evento", 148.5, 182, { align: "center" })
-
-    // Validation Code
-    doc.setFontSize(10)
-    doc.setTextColor(100, 100, 100)
-    doc.text(`Código de Validação: ${certCode}`, 148.5, 192, { align: "center" })
-    doc.text(`Verifique a autenticidade em: ${window.location.origin}/validate`, 148.5, 196, { align: "center" })
   }
 
   if (!attendee) return null

@@ -3,10 +3,11 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { supabase } from '../lib/supabase'
 import { formatPhone } from '../utils/format'
-import { Loader2, Calendar, Trash2, PlusCircle, User, LogOut, Award } from 'lucide-react'
+import { QrCode, Loader2, Calendar, Trash2, PlusCircle, User, LogOut, Award, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { Event } from '../types'
 import { jsPDF } from 'jspdf'
+import QRCode from 'react-qr-code'
 import { Card } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
@@ -31,6 +32,7 @@ export default function ParticipantDashboard() {
   const [availableEvents, setAvailableEvents] = useState<Event[]>([])
   const [loading, setLoading] = useState(true)
   const [updating, setUpdating] = useState(false)
+  const [showQr, setShowQr] = useState(false)
   
   const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm<UpdateForm>()
   const phoneValue = watch('phone')
@@ -275,13 +277,22 @@ export default function ParticipantDashboard() {
             <h1 className="text-2xl font-bold text-gray-900">Olá, {attendee.full_name.split(' ')[0]}</h1>
             <p className="text-sm text-gray-500">CPF: {attendee.cpf}</p>
           </div>
-          <Button 
-            variant="outline"
-            onClick={() => navigate('/participant')}
-            className="flex items-center gap-2"
-          >
-            <LogOut className="w-4 h-4" /> Sair
-          </Button>
+          <div className="flex gap-2">
+            <Button 
+              variant="primary"
+              onClick={() => setShowQr(true)}
+              className="flex items-center gap-2"
+            >
+              <QrCode className="w-4 h-4" /> Minha Credencial
+            </Button>
+            <Button 
+              variant="outline"
+              onClick={() => navigate('/participant')}
+              className="flex items-center gap-2"
+            >
+              <LogOut className="w-4 h-4" /> Sair
+            </Button>
+          </div>
         </Card>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -407,6 +418,31 @@ export default function ParticipantDashboard() {
         </Card>
 
       </div>
+
+      {/* QR Code Modal */}
+      {showQr && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg p-6 max-w-sm w-full relative text-center">
+            <button 
+              onClick={() => setShowQr(false)}
+              className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"
+            >
+              <X className="w-6 h-6" />
+            </button>
+            
+            <h3 className="text-lg font-bold mb-2">Minha Credencial</h3>
+            <p className="text-sm text-gray-500 mb-6">{attendee.full_name}</p>
+            
+            <div className="bg-white p-4 inline-block border rounded shadow-sm">
+              <QRCode 
+                value={attendee.cpf}
+                size={200}
+              />
+            </div>
+            <p className="text-xs text-gray-500 mt-4">Apresente este código na entrada do evento</p>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

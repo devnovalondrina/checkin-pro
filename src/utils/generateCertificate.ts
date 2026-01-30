@@ -129,8 +129,7 @@ export const drawCertificatePage = async (
   const codeY = qrY + qrSize + 5
   // Center text relative to QR Code
   const codeText = `Cód: ${certCode}`
-  const codeTextWidth = doc.getTextWidth(codeText)
-  const codeX = qrX + (qrSize / 2) - (codeTextWidth / 2) + (codeTextWidth/2) // actually align center
+  // const codeTextWidth = doc.getTextWidth(codeText)
   
   doc.text(codeText, qrX + (qrSize / 2), codeY, { align: "center" })
   

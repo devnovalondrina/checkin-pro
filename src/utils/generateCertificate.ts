@@ -161,19 +161,29 @@ const drawRichText = (
 }
 
 const loadImage = async (url: string): Promise<string> => {
-  try {
-    const response = await fetch(url)
-    const blob = await response.blob()
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader()
-      reader.onloadend = () => resolve(reader.result as string)
-      reader.onerror = reject
-      reader.readAsDataURL(blob)
-    })
-  } catch (error) {
-    console.error('Error loading image:', error)
-    throw error
-  }
+  return new Promise((resolve, reject) => {
+    const img = new Image()
+    img.crossOrigin = 'Anonymous'
+    img.onload = () => {
+      const canvas = document.createElement('canvas')
+      canvas.width = img.width
+      canvas.height = img.height
+      const ctx = canvas.getContext('2d')
+      if (!ctx) {
+        reject(new Error('Failed to get canvas context'))
+        return
+      }
+      ctx.drawImage(img, 0, 0)
+      try {
+        const dataURL = canvas.toDataURL('image/png')
+        resolve(dataURL)
+      } catch (e) {
+        reject(e)
+      }
+    }
+    img.onerror = (e) => reject(new Error('Failed to load image: ' + url))
+    img.src = url
+  })
 }
 
 export const drawCertificatePage = async (

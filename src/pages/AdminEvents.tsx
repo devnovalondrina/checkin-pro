@@ -15,6 +15,7 @@ interface EventForm {
   location: string
   description: string
   workload: number
+  certificate_template_url?: string
 }
 
 export default function AdminEvents() {
@@ -54,7 +55,8 @@ export default function AdminEvents() {
         date: new Date(data.date).toISOString(),
         location: data.location,
         description: data.description,
-        workload: data.workload || 0
+        workload: data.workload || 0,
+        certificate_template_url: data.certificate_template_url
       }
 
       if (editingId) {
@@ -151,6 +153,7 @@ export default function AdminEvents() {
     setValue('location', event.location || '')
     setValue('description', event.description || '')
     setValue('workload', event.workload || 0)
+    setValue('certificate_template_url', event.certificate_template_url || '')
   }
 
   const cancelEdit = () => {
@@ -206,6 +209,12 @@ export default function AdminEvents() {
                 type="number"
                 placeholder="Ex: 8"
                 {...register('workload')}
+              />
+
+              <Input
+                label="URL do Fundo do Certificado (opcional)"
+                placeholder="https://exemplo.com/certificado.png"
+                {...register('certificate_template_url')}
               />
 
               <div>

@@ -192,15 +192,65 @@ export default function Admin() {
       const selectedEvent = events.find(e => e.id === selectedEventId)
       if (!selectedEvent) return
   
-      presentRegistrations.forEach((reg, index) => {
+      for (let index = 0; index < presentRegistrations.length; index++) {
+          const reg = presentRegistrations[index];
           if (index > 0) doc.addPage()
           
           const attendee = reg.attendee
-          if (!attendee) return
+          if (!attendee) continue
   
           // Generate code if missing (note: this is not saved to DB)
           const certCode = reg.certificate_code || `${Math.floor(100000 + Math.random() * 900000)}${new Date(selectedEvent.date).getFullYear()}`
   
+          if (selectedEvent.certificate_template_url) {
+             // Custom Template Logic
+             try {
+                // Add image (A4 Landscape: 297x210mm)
+                doc.addImage(selectedEvent.certificate_template_url, 'PNG', 0, 0, 297, 210)
+                
+                // We don't add default text overlay if custom template is used, 
+                // BUT user asked to "only alter NAME, CPF, Random Code".
+                // So we assume the user's template is a background and we print over it.
+                // However, positions might vary. For now, let's print in a standard position 
+                // or center, assuming the user designed the template with space in the center.
+                
+                // Let's use a standard centered layout for the data
+                doc.setTextColor(0, 0, 0)
+                doc.setFont("helvetica", "bold")
+                doc.setFontSize(24)
+                doc.text(attendee.full_name, 148.5, 95, { align: "center" }) // Center Name
+                
+                doc.setFontSize(14)
+                doc.text(`CPF: ${formatCPF(attendee.cpf)}`, 148.5, 105, { align: "center" }) // Center CPF
+                
+                // Validation Code at bottom
+                doc.setFontSize(10)
+                doc.text(`Código: ${certCode}`, 148.5, 190, { align: "center" })
+                
+             } catch (imgError) {
+                 console.error("Error loading custom template image", imgError)
+                 toast.error(`Erro ao carregar imagem de fundo para ${attendee.full_name}. Usando padrão.`)
+                 // Fallback to default
+                 drawDefaultCertificate(doc, attendee, selectedEvent, certCode)
+             }
+          } else {
+             // Default Template
+             drawDefaultCertificate(doc, attendee, selectedEvent, certCode)
+          }
+      }
+  
+      doc.save(`certificados_${selectedEvent.title.replace(/\s+/g, '_').toLowerCase()}.pdf`)
+      toast.success('Certificados gerados com sucesso!')
+  
+    } catch (err) {
+      console.error(err)
+      toast.error('Erro ao gerar certificados')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const drawDefaultCertificate = (doc: jsPDF, attendee: any, event: Event, certCode: string) => {
           // Colors
           const primaryColor = '#4f46e5' // Indigo 600
   
@@ -235,17 +285,17 @@ export default function Admin() {
           
           doc.setFont("helvetica", "bold")
           doc.setFontSize(22)
-          doc.text(selectedEvent.title, 148.5, 125, { align: "center" })
+          doc.text(event.title, 148.5, 125, { align: "center" })
           
           // Date and Location
-          const dateStr = new Date(selectedEvent.date).toLocaleDateString()
+          const dateStr = new Date(event.date).toLocaleDateString()
           doc.setFont("helvetica", "normal")
           doc.setFontSize(16)
-          doc.text(`realizado em ${dateStr}${selectedEvent.location ? ` - ${selectedEvent.location}` : ''}`, 148.5, 140, { align: "center" })
+          doc.text(`realizado em ${dateStr}${event.location ? ` - ${event.location}` : ''}`, 148.5, 140, { align: "center" })
   
           // Workload
-          if (selectedEvent.workload > 0) {
-              doc.text(`Carga horária: ${selectedEvent.workload} horas`, 148.5, 150, { align: "center" })
+          if (event.workload > 0) {
+              doc.text(`Carga horária: ${event.workload} horas`, 148.5, 150, { align: "center" })
           }
   
           // Signature Line
@@ -261,17 +311,6 @@ export default function Admin() {
           doc.setTextColor(100, 100, 100)
           doc.text(`Código de Validação: ${certCode}`, 148.5, 192, { align: "center" })
           doc.text(`Verifique a autenticidade em: ${window.location.origin}/validate`, 148.5, 196, { align: "center" })
-      })
-  
-      doc.save(`certificados_${selectedEvent.title.replace(/\s+/g, '_').toLowerCase()}.pdf`)
-      toast.success('Certificados gerados com sucesso!')
-  
-    } catch (err) {
-      console.error(err)
-      toast.error('Erro ao gerar certificados')
-    } finally {
-      setLoading(false)
-    }
   }
 
   const filteredList = registrations.filter(reg => {

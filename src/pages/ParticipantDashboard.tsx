@@ -200,6 +200,39 @@ export default function ParticipantDashboard() {
       format: 'a4'
     })
 
+    if (event.certificate_template_url) {
+      try {
+        // Custom Template
+        doc.addImage(event.certificate_template_url, 'PNG', 0, 0, 297, 210)
+        
+        // Standard Centered Layout
+        doc.setTextColor(0, 0, 0)
+        doc.setFont("helvetica", "bold")
+        doc.setFontSize(24)
+        doc.text(attendee.full_name, 148.5, 95, { align: "center" }) // Center Name
+        
+        doc.setFontSize(14)
+        doc.text(`CPF: ${attendee.cpf}`, 148.5, 105, { align: "center" }) // Center CPF
+        
+        // Validation Code
+        doc.setFontSize(10)
+        doc.text(`Código: ${certCode}`, 148.5, 190, { align: "center" })
+
+      } catch (err) {
+        console.error("Error loading template", err)
+        toast.error("Erro ao carregar modelo de certificado. Usando padrão.")
+        drawDefaultCertificate(doc, attendee, event, certCode)
+      }
+    } else {
+      // Default Template
+      drawDefaultCertificate(doc, attendee, event, certCode)
+    }
+
+    // Save
+    doc.save(`certificado_${event.title.replace(/\s+/g, '_').toLowerCase()}.pdf`)
+  }
+
+  const drawDefaultCertificate = (doc: jsPDF, attendee: any, event: Event, certCode: string) => {
     // Colors
     const primaryColor = '#4f46e5' // Indigo 600
 
@@ -260,9 +293,6 @@ export default function ParticipantDashboard() {
     doc.setTextColor(100, 100, 100)
     doc.text(`Código de Validação: ${certCode}`, 148.5, 192, { align: "center" })
     doc.text(`Verifique a autenticidade em: ${window.location.origin}/validate`, 148.5, 196, { align: "center" })
-
-    // Save
-    doc.save(`certificado_${event.title.replace(/\s+/g, '_').toLowerCase()}.pdf`)
   }
 
   if (!attendee) return null

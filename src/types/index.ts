@@ -16,6 +16,7 @@ export interface Event {
   is_open: boolean
   workload: number // Carga horária em horas
   certificates_released: boolean // Se os certificados foram liberados
+  certificate_template_url?: string | null // URL da imagem de fundo do certificado
 }
 
 export interface Registration {

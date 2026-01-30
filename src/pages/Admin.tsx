@@ -2,10 +2,11 @@ import React, { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { Registration, Event } from '../types'
 import { formatCPF } from '../utils/format'
-import { Search, UserCheck, UserX, Users, RefreshCw, Download, Camera, X } from 'lucide-react'
+import { Search, UserCheck, UserX, Users, RefreshCw, Download, Camera, X, FileText } from 'lucide-react'
 import clsx from 'clsx'
 import { saveAs } from 'file-saver'
 import * as XLSX from 'xlsx'
+import { jsPDF } from 'jspdf'
 import QrScanner from 'react-qr-scanner'
 import { toast } from 'sonner'
 import { Card } from '../components/ui/Card'
@@ -134,20 +135,18 @@ export default function Admin() {
   const exportToExcel = async () => {
     try {
       setLoading(true)
-      const { data: attendees } = await supabase.from('attendees').select('*').order('created_at', { ascending: true })
-      const { data: allRegistrations } = await supabase.from('registrations').select('*')
       
-      if (!attendees) return
+      if (registrations.length === 0) {
+        toast.warning('Nenhum registro para exportar.')
+        setLoading(false)
+        return
+      }
 
-      const dataToExport = attendees.map((attendee, index) => {
-        const userRegistrations = allRegistrations?.filter(r => r.attendee_id === attendee.id) || []
+      const dataToExport = registrations.map((reg) => {
         return {
-          'Ordem': index + 1,
-          'Nome': attendee.full_name,
-          'CPF': formatCPF(attendee.cpf),
-          'Telefone': attendee.phone,
-          'Qtd Eventos': userRegistrations.length,
-          'Data Cadastro': attendee.created_at ? new Date(attendee.created_at).toLocaleDateString() : '-'
+          'Nome': reg.attendee?.full_name || '',
+          'Telefone': reg.attendee?.phone || '',
+          'CPF': formatCPF(reg.attendee?.cpf || ''),
         }
       })
 
@@ -155,15 +154,121 @@ export default function Admin() {
       const wb = XLSX.utils.book_new()
       XLSX.utils.book_append_sheet(wb, ws, "Participantes")
       
+      const selectedEvent = events.find(e => e.id === selectedEventId)
+      const fileName = selectedEvent 
+        ? `lista_evento_${selectedEvent.title.replace(/\s+/g, '_').toLowerCase()}.xlsx`
+        : `participantes_checkin_${new Date().toISOString().slice(0,10)}.xlsx`
+
       const excelBuffer = XLSX.write(wb, { bookType: 'xlsx', type: 'array' })
       const data = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8' })
       
-      saveAs(data, `participantes_checkin_${new Date().toISOString().slice(0,10)}.xlsx`)
+      saveAs(data, fileName)
       toast.success('Relatório exportado com sucesso!')
       
     } catch (error) {
       console.error('Error exporting:', error)
       toast.error('Erro ao exportar excel')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const exportCertificates = async () => {
+    const presentRegistrations = registrations.filter(r => r.checked_in)
+    
+    if (presentRegistrations.length === 0) {
+      toast.warning('Nenhum participante presente para gerar certificados.')
+      return
+    }
+    
+    setLoading(true)
+    try {
+      const doc = new jsPDF({
+        orientation: 'landscape',
+        unit: 'mm',
+        format: 'a4'
+      })
+  
+      const selectedEvent = events.find(e => e.id === selectedEventId)
+      if (!selectedEvent) return
+  
+      presentRegistrations.forEach((reg, index) => {
+          if (index > 0) doc.addPage()
+          
+          const attendee = reg.attendee
+          if (!attendee) return
+  
+          // Generate code if missing (note: this is not saved to DB)
+          const certCode = reg.certificate_code || `${Math.floor(100000 + Math.random() * 900000)}${new Date(selectedEvent.date).getFullYear()}`
+  
+          // Colors
+          const primaryColor = '#4f46e5' // Indigo 600
+  
+          // Border
+          doc.setDrawColor(79, 70, 229)
+          doc.setLineWidth(2)
+          doc.rect(10, 10, 277, 190)
+          
+          // Header
+          doc.setFont("helvetica", "bold")
+          doc.setTextColor(primaryColor)
+          doc.setFontSize(40)
+          doc.text("CERTIFICADO", 148.5, 40, { align: "center" })
+          
+          doc.setFontSize(16)
+          doc.setTextColor(100, 100, 100)
+          doc.text("DE PARTICIPAÇÃO", 148.5, 50, { align: "center" })
+  
+          // Content
+          doc.setTextColor(0, 0, 0)
+          doc.setFont("helvetica", "normal")
+          doc.setFontSize(18)
+          doc.text("Certificamos que", 148.5, 80, { align: "center" })
+          
+          doc.setFont("helvetica", "bold")
+          doc.setFontSize(24)
+          doc.text(attendee.full_name, 148.5, 95, { align: "center" })
+          
+          doc.setFont("helvetica", "normal")
+          doc.setFontSize(18)
+          doc.text("participou do evento", 148.5, 110, { align: "center" })
+          
+          doc.setFont("helvetica", "bold")
+          doc.setFontSize(22)
+          doc.text(selectedEvent.title, 148.5, 125, { align: "center" })
+          
+          // Date and Location
+          const dateStr = new Date(selectedEvent.date).toLocaleDateString()
+          doc.setFont("helvetica", "normal")
+          doc.setFontSize(16)
+          doc.text(`realizado em ${dateStr}${selectedEvent.location ? ` - ${selectedEvent.location}` : ''}`, 148.5, 140, { align: "center" })
+  
+          // Workload
+          if (selectedEvent.workload > 0) {
+              doc.text(`Carga horária: ${selectedEvent.workload} horas`, 148.5, 150, { align: "center" })
+          }
+  
+          // Signature Line
+          doc.setDrawColor(0, 0, 0)
+          doc.setLineWidth(0.5)
+          doc.line(90, 175, 207, 175)
+          
+          doc.setFontSize(12)
+          doc.text("Organização do Evento", 148.5, 182, { align: "center" })
+  
+          // Validation Code
+          doc.setFontSize(10)
+          doc.setTextColor(100, 100, 100)
+          doc.text(`Código de Validação: ${certCode}`, 148.5, 192, { align: "center" })
+          doc.text(`Verifique a autenticidade em: ${window.location.origin}/validate`, 148.5, 196, { align: "center" })
+      })
+  
+      doc.save(`certificados_${selectedEvent.title.replace(/\s+/g, '_').toLowerCase()}.pdf`)
+      toast.success('Certificados gerados com sucesso!')
+  
+    } catch (err) {
+      console.error(err)
+      toast.error('Erro ao gerar certificados')
     } finally {
       setLoading(false)
     }
@@ -230,6 +335,13 @@ export default function Admin() {
                 title="Exportar Excel"
               >
                 <Download className="w-5 h-5" />
+              </Button>
+              <Button 
+                onClick={exportCertificates}
+                className="p-2 bg-indigo-600 hover:bg-indigo-700 border-indigo-600 text-white"
+                title="Exportar Certificados (PDF)"
+              >
+                <FileText className="w-5 h-5" />
               </Button>
             </div>
           </div>

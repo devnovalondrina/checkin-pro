@@ -104,8 +104,9 @@ export default function Register() {
       : (data.selected_events ? [data.selected_events] : [])
 
     if (selectedEvents.length === 0) {
-      toast.warning('Selecione pelo menos um evento para participar.')
-      return
+      // Allow registration without event selection
+      // toast.warning('Selecione pelo menos um evento para participar.')
+      // return
     }
 
     setLoading(true)
@@ -115,11 +116,27 @@ export default function Register() {
       // 1. Find or Create Attendee
       let attendeeId: string
 
-      const { data: existingUser } = await supabase
+      let { data: existingUser } = await supabase
         .from('attendees')
         .select('id')
         .eq('cpf', cleanedCPF)
         .single()
+
+      if (!existingUser) {
+        // Check legacy format
+        const formatted = formatCPF(cleanedCPF)
+        const { data: legacyUser } = await supabase
+            .from('attendees')
+            .select('id')
+            .eq('cpf', formatted)
+            .single()
+        
+        if (legacyUser) {
+            // Found legacy, update and use
+            await supabase.from('attendees').update({ cpf: cleanedCPF }).eq('id', legacyUser.id)
+            existingUser = legacyUser
+        }
+      }
 
       if (existingUser) {
         // Prevent name overwrite for existing users

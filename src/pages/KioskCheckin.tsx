@@ -83,12 +83,28 @@ export default function KioskCheckin() {
       const cleanedCpf = cleanCPF(cpf)
       
       // 1. Find attendee
-      const { data: attendees, error: attError } = await supabase
+      let { data: attendees, error: attError } = await supabase
         .from('attendees')
         .select('*')
         .eq('cpf', cleanedCpf)
       
       if (attError) throw attError
+
+      // Check legacy format
+      if (!attendees || attendees.length === 0) {
+        const formatted = formatCPF(cleanedCpf)
+        const { data: legacyAttendees } = await supabase
+            .from('attendees')
+            .select('*')
+            .eq('cpf', formatted)
+        
+        if (legacyAttendees && legacyAttendees.length > 0) {
+            // Found legacy, update and use
+            const legacy = legacyAttendees[0]
+            await supabase.from('attendees').update({ cpf: cleanedCpf }).eq('id', legacy.id)
+            attendees = [legacy]
+        }
+      }
 
       const attendee = attendees?.[0]
 

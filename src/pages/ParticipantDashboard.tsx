@@ -200,7 +200,6 @@ export default function ParticipantDashboard() {
 
     // Colors
     const primaryColor = '#4f46e5' // Indigo 600
-    const secondaryColor = '#3730a3' // Indigo 800
 
     // Border
     doc.setDrawColor(79, 70, 229)

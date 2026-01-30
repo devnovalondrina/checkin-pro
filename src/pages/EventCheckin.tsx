@@ -246,7 +246,7 @@ export default function EventCheckin() {
                 type="submit"
                 isLoading={checking}
                 fullWidth
-                variant="success"
+                variant="primary"
               >
                 Confirmar Presença
               </Button>

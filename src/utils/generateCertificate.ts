@@ -41,6 +41,13 @@ interface TextPart {
   bold?: boolean
 }
 
+interface Token {
+  text: string
+  bold: boolean
+  isSpace: boolean
+  width: number
+}
+
 const drawRichText = (
   doc: jsPDF, 
   parts: TextPart[], 
@@ -49,90 +56,108 @@ const drawRichText = (
   maxWidth: number, 
   lineHeight: number
 ) => {
-  let cursorX = x
   let cursorY = y
   
   doc.setFont("helvetica", "normal")
 
-
-  // Flatten parts into words to handle wrapping
-  // We need to keep track of which part a word belongs to to know if it's bold
-  const words: { word: string, bold: boolean }[] = []
-
+  // 1. Tokenize and measure
+  const tokens: Token[] = []
+  
   parts.forEach(part => {
-    // Split by space but preserve meaning
-    const partWords = part.text.split(/(\s+)/).filter(w => w.length > 0)
-    partWords.forEach(w => {
-        if (w.match(/^\s+$/)) {
-            // It's a space/separator
-             words.push({ word: ' ', bold: part.bold || false })
-        } else {
-             words.push({ word: w, bold: part.bold || false })
-        }
+    // Split by spaces, keeping them
+    const subTokens = part.text.split(/(\s+)/)
+    subTokens.forEach(t => {
+      if (!t) return
+      const isSpace = !!t.match(/^\s+$/)
+      
+      // Measure width
+      doc.setFont("helvetica", part.bold ? "bold" : "normal")
+      const width = doc.getTextWidth(t)
+
+      tokens.push({
+        text: t,
+        bold: part.bold || false,
+        isSpace,
+        width
+      })
     })
   })
 
-  // Normalize spaces: merge multiple spaces? No, just handle them.
-  // Actually, split logic above might be complex. 
-  // Simpler approach: Split by space, assume single space between words unless explicit.
-  // But parts might not end with space.
-  // E.g. "Name" + "," -> "Name,".
-  // So we should not split strictly by space if punctuation is involved without space.
-  // But usually we wrap at spaces.
+  // 2. Line breaking and Justification
+  let currentLine: Token[] = []
+  let currentLineWidth = 0
 
-  // Let's iterate parts and split by space, but check if we should add space.
-  
-  // Re-approach:
-  // Build a list of "Tokens" where a Token is a printable string (word or punctuation) or a Space.
-  
-  const tokens: { text: string, bold: boolean, isSpace: boolean }[] = []
-  
-  parts.forEach(part => {
-      // Split by spaces, keeping them?
-      // "Hello world" -> ["Hello", " ", "world"]
-      const subTokens = part.text.split(/(\s+)/)
-      subTokens.forEach(t => {
-          if (!t) return
-          if (t.match(/^\s+$/)) {
-              tokens.push({ text: ' ', bold: part.bold || false, isSpace: true })
-          } else {
-              tokens.push({ text: t, bold: part.bold || false, isSpace: false })
-          }
-      })
-  })
+  const renderLine = (lineTokens: Token[], justify: boolean) => {
+    if (lineTokens.length === 0) return
 
-  tokens.forEach((token) => {
-      doc.setFont("helvetica", token.bold ? "bold" : "normal")
-      const tokenWidth = doc.getTextWidth(token.text)
+    // Trim trailing spaces for width calculation
+    let visibleTokens = [...lineTokens]
+    while (visibleTokens.length > 0 && visibleTokens[visibleTokens.length - 1].isSpace) {
+      visibleTokens.pop()
+    }
+    if (visibleTokens.length === 0) return
+
+    // Calculate gap
+    const visibleWidth = visibleTokens.reduce((sum, t) => sum + t.width, 0)
+    const spaceTokensCount = visibleTokens.filter(t => t.isSpace).length
+    
+    let extraSpace = 0
+    if (justify && spaceTokensCount > 0) {
+       const available = maxWidth - visibleWidth
+       if (available > 0) {
+           extraSpace = available / spaceTokensCount
+       }
+    }
+
+    let lineX = x
+    visibleTokens.forEach(t => {
+      doc.setFont("helvetica", t.bold ? "bold" : "normal")
+      if (t.isSpace) {
+        // Draw nothing but advance cursor
+        lineX += t.width + extraSpace
+      } else {
+        doc.text(t.text, lineX, cursorY)
+        lineX += t.width
+      }
+    })
+
+    cursorY += lineHeight
+  }
+
+  for (let i = 0; i < tokens.length; i++) {
+    const token = tokens[i]
+    
+    // Check overflow
+    if (currentLineWidth + token.width > maxWidth && currentLine.length > 0) {
+      // If token is space and we are at edge, just ignore/swallow it if it overflows?
+      // Or if it fits, we add it. 
+      // Usually spaces at end of line are dropped.
       
       if (token.isSpace) {
-          // If space is at start of line, ignore
-          if (cursorX === x) return
-          
-          // If space makes it cross line? No, space usually fits or we break before.
-          // But if we are at edge, adding space is fine, it just won't be visible or will be.
-          // Let's just advance cursor.
-          if (cursorX + tokenWidth > x + maxWidth) {
-              // Wrap
-              cursorX = x
-              cursorY += lineHeight
-          } else {
-              // Draw space (or just move cursor)
-              // doc.text(token.text, cursorX, cursorY) // Drawing space does nothing usually
-              cursorX += tokenWidth
-          }
+        // It's a space that overflows or just ends the line.
+        // We can just ignore it for the current line and NOT start next line with it.
+        // But we should render the current line now.
+        renderLine(currentLine, true)
+        currentLine = []
+        currentLineWidth = 0
+        continue // Skip adding this space to next line
       } else {
-          // It's a word
-          if (cursorX + tokenWidth > x + maxWidth && cursorX > x) {
-              // Wrap before drawing
-              cursorX = x
-              cursorY += lineHeight
-          }
-          
-          doc.text(token.text, cursorX, cursorY)
-          cursorX += tokenWidth
+        // Word overflows. Render current line justified.
+        renderLine(currentLine, true)
+        currentLine = [token]
+        currentLineWidth = token.width
       }
-  })
+    } else {
+      // Fits
+      currentLine.push(token)
+      currentLineWidth += token.width
+    }
+  }
+
+  // Render last line (left aligned, no justify)
+  if (currentLine.length > 0) {
+    renderLine(currentLine, false)
+  }
 }
 
 export const drawCertificatePage = async (
@@ -165,7 +190,6 @@ export const drawCertificatePage = async (
   const dateStr = new Date(event.date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })
   const workloadStr = getWorkloadText(event.workload || 0)
   
-  // "Certificamos que [NOME] , inscrito(a) no CPF nº [CPF] , participou do Encontro Pedagógico com o tema “[TÍTULO DO EVENTO]” , com carga horária de 4 (quatro) horas (CARGA HORÁRIA), realizado no dia 02 de fevereiro de 2026 (DATA)."
   const parts: TextPart[] = [
     { text: 'Certificamos que ' },
     { text: attendee.full_name, bold: true },
@@ -183,22 +207,20 @@ export const drawCertificatePage = async (
   // 3. Layout Configuration
   const marginLeft = 15
   const marginTop = 70
-  const maxWidth = 130
+  // Reduced width as requested ("menos largo")
+  const maxWidth = 110 
   
   doc.setFont("helvetica", "normal")
   doc.setFontSize(14)
   doc.setTextColor(0, 0, 0)
 
-  drawRichText(doc, parts, marginLeft, marginTop, maxWidth, 7) // 7mm line height (~1.5 factor for 14pt)
+  drawRichText(doc, parts, marginLeft, marginTop, maxWidth, 7) // 7mm line height
 
   // 4. Validation Code (Below QR Code placeholder)
-  // QR Code assumed to be at x=marginLeft+10, y=145, size=30
   const bgQrX = marginLeft + 10
   const bgQrY = 145 
   const bgQrSize = 30
 
-  doc.setFont("helvetica", "bold") // Make validation code bold for visibility? Or normal as per request?
-  // User didn't specify bold for code, but it's important. I'll stick to normal but distinct.
   doc.setFont("helvetica", "normal")
   doc.setFontSize(10)
   doc.setTextColor(0, 0, 0)

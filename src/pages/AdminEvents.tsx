@@ -27,9 +27,7 @@ export default function AdminEvents() {
   
   const [isAllDay, setIsAllDay] = useState(false)
   
-  const { register, handleSubmit, reset, formState: { errors }, setValue, watch } = useForm<EventForm>()
-
-  const dateValue = watch('date')
+  const { register, handleSubmit, reset, formState: { errors }, setValue } = useForm<EventForm>()
 
   const fetchEvents = async () => {
     setLoading(true)

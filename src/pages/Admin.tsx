@@ -124,6 +124,77 @@ export default function Admin() {
     if (code) setShowScanner(false)
   }
 
+  const handleDelete = async (registrationId: string) => {
+    if (!window.confirm('Tem certeza que deseja remover este participante do evento?')) return
+
+    setLoading(true)
+    const { error } = await supabase
+      .from('registrations')
+      .delete()
+      .eq('id', registrationId)
+
+    if (error) {
+      console.error('Error deleting:', error)
+      toast.error('Erro ao remover participante')
+    } else {
+      toast.success('Participante removido com sucesso')
+      setRegistrations(prev => prev.filter(r => r.id !== registrationId))
+    }
+    setLoading(false)
+  }
+
+  const openEditModal = (reg: Registration) => {
+    if (!reg.attendee) return
+    setEditingRegistration(reg)
+    setEditForm({
+      full_name: reg.attendee.full_name,
+      phone: reg.attendee.phone
+    })
+    setIsEditModalOpen(true)
+  }
+
+  const handleSaveEdit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!editingRegistration || !editingRegistration.attendee) return
+
+    setLoading(true)
+    try {
+      // Update attendee data
+      const { error } = await supabase
+        .from('attendees')
+        .update({
+          full_name: editForm.full_name,
+          phone: editForm.phone
+        })
+        .eq('id', editingRegistration.attendee.id)
+
+      if (error) throw error
+
+      // Update local state
+      setRegistrations(prev => prev.map(r => {
+        if (r.id === editingRegistration.id && r.attendee) {
+          return {
+            ...r,
+            attendee: {
+              ...r.attendee,
+              full_name: editForm.full_name,
+              phone: editForm.phone
+            }
+          }
+        }
+        return r
+      }))
+
+      toast.success('Participante atualizado com sucesso')
+      setIsEditModalOpen(false)
+    } catch (error) {
+      console.error('Error updating:', error)
+      toast.error('Erro ao atualizar participante')
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const handleCameraScan = (data: any) => {
     if (data) {
       handleScan(undefined, data.text)

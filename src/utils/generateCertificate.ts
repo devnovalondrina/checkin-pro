@@ -53,7 +53,7 @@ const drawRichText = (
   let cursorY = y
   
   doc.setFont("helvetica", "normal")
-  const spaceWidth = doc.getTextWidth(' ')
+
 
   // Flatten parts into words to handle wrapping
   // We need to keep track of which part a word belongs to to know if it's bold

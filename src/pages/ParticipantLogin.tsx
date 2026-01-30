@@ -39,7 +39,7 @@ export default function ParticipantLogin() {
       const cleanedCPF = cleanCPF(data.cpf)
       
       // 1. Try to find by cleaned CPF (correct format)
-      let { data: attendee, error } = await supabase
+      let { data: attendee } = await supabase
         .from('attendees')
         .select('*')
         .eq('cpf', cleanedCPF)
@@ -63,7 +63,6 @@ export default function ParticipantLogin() {
                 .eq('id', dirtyAttendee.id)
             
             attendee = dirtyAttendee
-            error = null 
          }
       }
 

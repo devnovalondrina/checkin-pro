@@ -189,7 +189,7 @@ export default function Register() {
     <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4 pb-24">
       <Card className="max-w-md w-full" padding="lg">
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Check-in Evento</h1>
+          <h1 className="text-3xl font-bold text-gray-900">Inscrição no Evento</h1>
           <p className="text-gray-600 mt-2">
             {step === 'cpf' ? 'Digite seu CPF para começar' : 'Complete seus dados'}
           </p>

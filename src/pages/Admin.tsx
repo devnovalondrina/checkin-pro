@@ -25,6 +25,9 @@ export default function Admin() {
   const [scanCode, setScanCode] = useState('')
   const [showScanner, setShowScanner] = useState(false)
   const [scanStatus, setScanStatus] = useState<{ type: 'success' | 'error', message: string } | null>(null)
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false)
+  const [editingRegistration, setEditingRegistration] = useState<Registration | null>(null)
+  const [editForm, setEditForm] = useState({ full_name: '', phone: '' })
 
   useEffect(() => {
     const fetchEvents = async () => {

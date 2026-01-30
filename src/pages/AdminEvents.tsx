@@ -25,7 +25,11 @@ export default function AdminEvents() {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [showQr, setShowQr] = useState<Event | null>(null)
   
-  const { register, handleSubmit, reset, formState: { errors }, setValue } = useForm<EventForm>()
+  const [isAllDay, setIsAllDay] = useState(false)
+  
+  const { register, handleSubmit, reset, formState: { errors }, setValue, watch } = useForm<EventForm>()
+
+  const dateValue = watch('date')
 
   const fetchEvents = async () => {
     setLoading(true)
@@ -50,9 +54,18 @@ export default function AdminEvents() {
   const onSubmit = async (data: EventForm) => {
     setCreating(true)
     try {
+      let finalDate = new Date(data.date)
+      
+      if (isAllDay) {
+          // If all day, append 00:00 time in local timezone to ensure it's saved as "start of day"
+          // If we just use new Date('YYYY-MM-DD'), it defaults to UTC 00:00, which might be previous day in local time
+          // So we force local midnight
+          finalDate = new Date(data.date + 'T00:00:00')
+      }
+
       const eventData = {
         title: data.title,
-        date: new Date(data.date).toISOString(),
+        date: finalDate.toISOString(),
         location: data.location,
         description: data.description,
         workload: data.workload || 0,
@@ -142,12 +155,25 @@ export default function AdminEvents() {
     setEditingId(event.id)
     setValue('title', event.title)
     
-    // Format date for datetime-local input: YYYY-MM-DDThh:mm
+    // Check if it's potentially an all-day event (ends in 00:00:00.000Z or similar logic)
+    // For now, let's assume if the user toggles "All day", we treat it as such.
+    // But detecting from existing data is tricky without a dedicated flag.
+    // We will check if the time part is 00:00 local time.
+    
     if (event.date) {
       const d = new Date(event.date)
       // Adjust for local timezone to show correct time in input
-      const dateStr = new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16)
-      setValue('date', dateStr)
+      const dateObj = new Date(d.getTime() - d.getTimezoneOffset() * 60000)
+      const isoStr = dateObj.toISOString()
+      
+      const hasTime = d.getHours() !== 0 || d.getMinutes() !== 0
+      setIsAllDay(!hasTime)
+
+      if (!hasTime) {
+          setValue('date', isoStr.slice(0, 10)) // YYYY-MM-DD
+      } else {
+          setValue('date', isoStr.slice(0, 16)) // YYYY-MM-DDThh:mm
+      }
     }
     
     setValue('location', event.location || '')
@@ -191,9 +217,24 @@ export default function AdminEvents() {
                 error={errors.title?.message}
               />
 
+              <div className="flex items-center space-x-2 mb-2">
+                <input
+                    type="checkbox"
+                    id="isAllDay"
+                    checked={isAllDay}
+                    onChange={(e) => {
+                        setIsAllDay(e.target.checked)
+                        // Clear date when toggling to avoid format conflicts
+                        setValue('date', '') 
+                    }}
+                    className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+                />
+                <label htmlFor="isAllDay" className="text-sm text-gray-700">Evento de dia inteiro (sem horário)</label>
+              </div>
+
               <Input
-                label="Data e Hora"
-                type="datetime-local"
+                label={isAllDay ? "Data" : "Data e Hora"}
+                type={isAllDay ? "date" : "datetime-local"}
                 {...register('date', { required: 'Data é obrigatória' })}
                 error={errors.date?.message}
               />

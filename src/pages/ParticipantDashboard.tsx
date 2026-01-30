@@ -290,7 +290,10 @@ export default function ParticipantDashboard() {
                     <div className="min-w-0 flex-1 pr-2">
                       <h3 className="font-medium text-gray-900 break-words">{event.title}</h3>
                       <p className="text-sm text-gray-500">
-                        {new Date(event.date).toLocaleDateString()} às {new Date(event.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        {new Date(event.date).toLocaleDateString()}
+                        {(new Date(event.date).getHours() !== 0 || new Date(event.date).getMinutes() !== 0) && (
+                          <> às {new Date(event.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</>
+                        )}
                       </p>
                       <p className="text-xs text-gray-500 truncate">{event.location}</p>
                     </div>

@@ -104,9 +104,8 @@ export default function Register() {
       : (data.selected_events ? [data.selected_events] : [])
 
     if (selectedEvents.length === 0) {
-      // Allow registration without event selection
-      // toast.warning('Selecione pelo menos um evento para participar.')
-      // return
+      toast.warning('Selecione pelo menos um evento para participar.')
+      return
     }
 
     setLoading(true)
@@ -296,7 +295,10 @@ export default function Register() {
                         <span className="font-medium text-gray-900 group-hover:text-indigo-600 transition-colors">{event.title}</span>
                         <div className="text-gray-500 flex items-center mt-1">
                           <Calendar className="w-3 h-3 mr-1" />
-                          {new Date(event.date).toLocaleDateString()} às {new Date(event.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          {new Date(event.date).toLocaleDateString()}
+                          {(new Date(event.date).getHours() !== 0 || new Date(event.date).getMinutes() !== 0) && (
+                            <> às {new Date(event.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</>
+                          )}
                         </div>
                         {event.location && <p className="text-gray-500 text-xs mt-1">{event.location}</p>}
                       </div>

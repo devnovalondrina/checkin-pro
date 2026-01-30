@@ -197,7 +197,13 @@ export default function EventCheckin() {
           <div className="text-center mb-8">
             <h2 className="text-2xl font-bold text-gray-900">{event.title}</h2>
             <div className="mt-2 flex items-center justify-center text-sm text-gray-500 gap-4">
-              <span className="flex items-center"><Calendar className="w-4 h-4 mr-1" /> {new Date(event.date).toLocaleDateString()}</span>
+              <span className="flex items-center">
+                <Calendar className="w-4 h-4 mr-1" /> 
+                {new Date(event.date).toLocaleDateString()}
+                {(new Date(event.date).getHours() !== 0 || new Date(event.date).getMinutes() !== 0) && (
+                   <> às {new Date(event.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</>
+                )}
+              </span>
               {event.location && <span className="flex items-center"><MapPin className="w-4 h-4 mr-1" /> {event.location}</span>}
             </div>
           </div>

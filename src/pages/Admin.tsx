@@ -424,16 +424,31 @@ export default function Admin() {
               </li>
             ) : (
               filteredList.map((reg) => (
-                <li key={reg.id} className="p-4 hover:bg-gray-50 transition-colors flex items-center justify-between">
-                  <div className="flex-1 min-w-0">
+                <li key={reg.id} className="p-4 hover:bg-gray-50 transition-colors flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                  <div className="flex-1 min-w-0 w-full">
                     <p className="text-lg font-medium text-gray-900 truncate">{reg.attendee?.full_name}</p>
-                    <div className="flex items-center text-sm text-gray-500 gap-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center text-sm text-gray-500 gap-1 sm:gap-4">
                       <span>CPF: {formatCPF(reg.attendee?.cpf || '')}</span>
                       <span className="hidden sm:inline">|</span>
-                      <span className="hidden sm:inline">Tel: {reg.attendee?.phone}</span>
+                      <span>Tel: {reg.attendee?.phone}</span>
                     </div>
                   </div>
-                  <div className="ml-4 flex-shrink-0">
+                  <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
+                    <button
+                      onClick={() => openEditModal(reg)}
+                      className="p-2 text-gray-400 hover:text-indigo-600 transition-colors"
+                      title="Editar"
+                    >
+                      <Edit className="w-5 h-5" />
+                    </button>
+                    <button
+                      onClick={() => handleDelete(reg.id)}
+                      className="p-2 text-gray-400 hover:text-red-600 transition-colors"
+                      title="Remover"
+                    >
+                      <Trash className="w-5 h-5" />
+                    </button>
+                    <div className="h-6 w-px bg-gray-200 mx-2 hidden sm:block"></div>
                     <button
                       onClick={() => toggleCheckIn(reg.id, reg.checked_in)}
                       className={clsx(
@@ -457,6 +472,42 @@ export default function Admin() {
           </ul>
         </Card>
       </div>
+
+      {/* Edit Modal */}
+      {isEditModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+          <Card className="w-full max-w-md bg-white animate-in zoom-in-95 duration-200">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-bold text-gray-900">Editar Participante</h3>
+              <button onClick={() => setIsEditModalOpen(false)} className="text-gray-400 hover:text-gray-600">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <form onSubmit={handleSaveEdit} className="space-y-4">
+              <Input
+                label="Nome Completo"
+                value={editForm.full_name}
+                onChange={e => setEditForm(prev => ({ ...prev, full_name: e.target.value }))}
+                required
+              />
+              <Input
+                label="Telefone"
+                value={editForm.phone}
+                onChange={e => setEditForm(prev => ({ ...prev, phone: e.target.value }))}
+                required
+              />
+              <div className="flex gap-3 pt-2">
+                <Button type="button" variant="outline" onClick={() => setIsEditModalOpen(false)} fullWidth>
+                  Cancelar
+                </Button>
+                <Button type="submit" isLoading={loading} fullWidth>
+                  Salvar
+                </Button>
+              </div>
+            </form>
+          </Card>
+        </div>
+      )}
     </div>
   )
 }

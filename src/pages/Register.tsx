@@ -77,10 +77,11 @@ export default function Register() {
         .single()
 
       if (existingUser) {
-        toast.warning('Você já possui cadastro! Redirecionando para a área do participante...')
+        toast.warning('Você já possui cadastro! Redirecionando...')
+        // Short delay to let user see the message
         setTimeout(() => {
-          navigate('/participant')
-        }, 1500)
+          navigate('/participant', { state: { cpf: cleaned } })
+        }, 1000)
         return
       } else {
         setValue('full_name', '')

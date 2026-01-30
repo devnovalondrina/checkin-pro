@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { useForm } from 'react-hook-form'
-import { useNavigate, Link } from 'react-router-dom'
+import { useNavigate, Link, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { formatCPF, cleanCPF } from '../utils/format'
 import { Button } from '../components/ui/Button'
@@ -15,12 +15,23 @@ export default function ParticipantLogin() {
   const { register, handleSubmit, formState: { errors }, setValue, watch, setError } = useForm<LoginForm>()
   const [loading, setLoading] = useState(false)
   const navigate = useNavigate()
+  const location = useLocation()
 
   const cpfValue = watch('cpf')
 
   React.useEffect(() => {
     if (cpfValue) setValue('cpf', formatCPF(cpfValue))
   }, [cpfValue, setValue])
+
+  // Auto-login if CPF is provided via state
+  React.useEffect(() => {
+    if (location.state?.cpf) {
+      const cpf = location.state.cpf
+      setValue('cpf', formatCPF(cpf))
+      // Trigger login automatically
+      onSubmit({ cpf })
+    }
+  }, [location.state, setValue])
 
   const onSubmit = async (data: LoginForm) => {
     setLoading(true)

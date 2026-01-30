@@ -38,13 +38,36 @@ export default function ParticipantLogin() {
     try {
       const cleanedCPF = cleanCPF(data.cpf)
       
-      const { data: attendee, error } = await supabase
+      // 1. Try to find by cleaned CPF (correct format)
+      let { data: attendee, error } = await supabase
         .from('attendees')
         .select('*')
         .eq('cpf', cleanedCPF)
         .single()
 
-      if (error || !attendee) {
+      // 2. If not found, try finding by formatted CPF (legacy/incorrect format)
+      if (!attendee) {
+         const formattedCPF = formatCPF(cleanedCPF)
+         
+         const { data: dirtyAttendee } = await supabase
+            .from('attendees')
+            .select('*')
+            .eq('cpf', formattedCPF)
+            .single()
+            
+         if (dirtyAttendee) {
+            // Found it! Auto-correct to cleaned CPF
+            await supabase
+                .from('attendees')
+                .update({ cpf: cleanedCPF })
+                .eq('id', dirtyAttendee.id)
+            
+            attendee = dirtyAttendee
+            error = null 
+         }
+      }
+
+      if (!attendee) {
         setError('cpf', { message: 'CPF não encontrado. Faça seu cadastro primeiro.' })
         return
       }

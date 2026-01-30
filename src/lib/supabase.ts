@@ -121,7 +121,14 @@ const createMockClient = () => {
            return Promise.resolve({ error: null })
         }
       })
-    })
+    }),
+    auth: {
+      getSession: () => Promise.resolve({ data: { session: null }, error: null }),
+      onAuthStateChange: () => ({ data: { subscription: { unsubscribe: () => {} } } }),
+      signInWithPassword: () => Promise.resolve({ data: { session: null }, error: new Error('Mock client: Auth not available') }),
+      signOut: () => Promise.resolve({ error: null }),
+      getUser: () => Promise.resolve({ data: { user: null }, error: null }),
+    }
   } as unknown as SupabaseClient
 }
 

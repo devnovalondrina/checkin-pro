@@ -160,6 +160,22 @@ const drawRichText = (
   }
 }
 
+const loadImage = async (url: string): Promise<string> => {
+  try {
+    const response = await fetch(url)
+    const blob = await response.blob()
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onloadend = () => resolve(reader.result as string)
+      reader.onerror = reject
+      reader.readAsDataURL(blob)
+    })
+  } catch (error) {
+    console.error('Error loading image:', error)
+    throw error
+  }
+}
+
 export const drawCertificatePage = async (
   doc: jsPDF, 
   attendee: Attendee, 
@@ -172,7 +188,14 @@ export const drawCertificatePage = async (
   // 1. Background
   if (event.certificate_template_url) {
     try {
-      doc.addImage(event.certificate_template_url, 'PNG', 0, 0, width, height)
+      const imgData = await loadImage(event.certificate_template_url)
+      // Extract format from data URL (e.g., "image/png" -> "PNG")
+      let format = 'PNG'
+      if (imgData.startsWith('data:image/jpeg')) format = 'JPEG'
+      else if (imgData.startsWith('data:image/jpg')) format = 'JPEG'
+      else if (imgData.startsWith('data:image/webp')) format = 'WEBP'
+      
+      doc.addImage(imgData, format, 0, 0, width, height)
     } catch (e) {
       console.error('Failed to load template', e)
       doc.setFillColor(255, 255, 255)

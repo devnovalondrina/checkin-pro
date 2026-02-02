@@ -357,10 +357,16 @@ export default function Admin() {
       }
 
       const dataToExport = registrations.map((reg) => {
+        const checkinTime = reg.checkin_time 
+          ? new Date(reg.checkin_time).toLocaleString('pt-BR') 
+          : ''
+          
         return {
           'Nome': reg.attendee?.full_name || '',
           'Telefone': reg.attendee?.phone || '',
           'CPF': formatCPF(reg.attendee?.cpf || ''),
+          'Presença': reg.checked_in ? 'SIM' : 'NÃO',
+          'Horário Check-in': checkinTime
         }
       })
 

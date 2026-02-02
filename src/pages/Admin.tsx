@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { Registration, Event } from '../types'
-import { formatCPF } from '../utils/format'
-import { Search, UserCheck, UserX, Users, RefreshCw, Download, Camera, X, FileText, Edit, Trash } from 'lucide-react'
+import { formatCPF, cleanCPF } from '../utils/format'
+import { Search, UserCheck, UserX, Users, RefreshCw, Download, Camera, X, FileText, Edit, Trash, Upload } from 'lucide-react'
 import clsx from 'clsx'
 import { saveAs } from 'file-saver'
 import * as XLSX from 'xlsx'
@@ -28,6 +28,113 @@ export default function Admin() {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
   const [editingRegistration, setEditingRegistration] = useState<Registration | null>(null)
   const [editForm, setEditForm] = useState({ full_name: '', phone: '' })
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false)
+  const [importResult, setImportResult] = useState<{total: number, success: number, failed: number} | null>(null)
+
+  const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file || !selectedEventId) return
+
+    setLoading(true)
+    setImportResult(null)
+
+    try {
+      const data = await file.arrayBuffer()
+      const workbook = XLSX.read(data)
+      const worksheet = workbook.Sheets[workbook.SheetNames[0]]
+      const jsonData = XLSX.utils.sheet_to_json(worksheet) as any[]
+
+      let successCount = 0
+      let failCount = 0
+
+      for (const row of jsonData) {
+         const keys = Object.keys(row)
+         const cpfKey = keys.find(k => k.toLowerCase().includes('cpf'))
+         const nameKey = keys.find(k => k.toLowerCase().includes('nome') || k.toLowerCase().includes('name') || k.toLowerCase().includes('participante'))
+         const phoneKey = keys.find(k => k.toLowerCase().includes('tel') || k.toLowerCase().includes('cel') || k.toLowerCase().includes('phone'))
+
+         if (!cpfKey || !nameKey) {
+           failCount++
+           continue
+         }
+
+         const rawCpf = String(row[cpfKey])
+         const cpf = cleanCPF(rawCpf)
+         const fullName = row[nameKey]
+         const phone = phoneKey ? String(row[phoneKey]) : ''
+
+         if (!cpf || cpf.length !== 11) {
+           failCount++
+           continue
+         }
+
+         // 1. Upsert Attendee logic
+         let attendeeId: string | null = null
+
+         // Try to find existing
+         const { data: existingAttendee } = await supabase
+           .from('attendees')
+           .select('id')
+           .eq('cpf', cpf)
+           .maybeSingle() // Use maybeSingle to avoid error if not found
+
+         if (existingAttendee) {
+           attendeeId = existingAttendee.id
+           // Update name/phone
+           await supabase
+             .from('attendees')
+             .update({ full_name: fullName, phone: phone || undefined }) // only update phone if provided
+             .eq('id', attendeeId)
+         } else {
+           // Create new
+           const { data: newAttendee, error: createError } = await supabase
+             .from('attendees')
+             .insert({ full_name: fullName, cpf, phone })
+             .select('id')
+             .single()
+           
+           if (!createError && newAttendee) {
+             attendeeId = newAttendee.id
+           }
+         }
+
+         if (!attendeeId) {
+           failCount++
+           continue
+         }
+
+         // 2. Insert Registration
+         const { data: existingReg } = await supabase
+           .from('registrations')
+           .select('id')
+           .eq('event_id', selectedEventId)
+           .eq('attendee_id', attendeeId)
+           .maybeSingle()
+
+         if (!existingReg) {
+           const { error: regError } = await supabase
+             .from('registrations')
+             .insert({ event_id: selectedEventId, attendee_id: attendeeId })
+           
+           if (regError) failCount++
+           else successCount++
+         } else {
+           successCount++ // Already registered
+         }
+      }
+
+      setImportResult({ total: jsonData.length, success: successCount, failed: failCount })
+      toast.success(`Importação concluída!`)
+      fetchRegistrations()
+      
+    } catch (error) {
+      console.error('Import error:', error)
+      toast.error('Erro ao processar arquivo. Verifique se é um arquivo Excel válido.')
+    } finally {
+      setLoading(false)
+      if (e.target) e.target.value = ''
+    }
+  }
 
   useEffect(() => {
     const fetchEvents = async () => {
@@ -347,6 +454,13 @@ export default function Admin() {
                 <RefreshCw className={clsx("w-5 h-5 text-gray-600", loading && "animate-spin")} />
               </Button>
               <Button 
+                onClick={() => setIsImportModalOpen(true)}
+                className="p-2 bg-blue-600 hover:bg-blue-700 border-blue-600 text-white"
+                title="Importar Participantes (Excel)"
+              >
+                <Upload className="w-5 h-5" />
+              </Button>
+              <Button 
                 onClick={exportToExcel}
                 className="p-2 bg-green-600 hover:bg-green-700 border-green-600 text-white"
                 title="Exportar Excel"
@@ -579,6 +693,59 @@ export default function Admin() {
                 </Button>
               </div>
             </form>
+          </Card>
+        </div>
+      )}
+      {/* Import Modal */}
+      {isImportModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
+          <Card className="w-full max-w-md bg-white animate-in zoom-in-95 duration-200">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-bold">Importar Participantes</h3>
+              <button onClick={() => { setIsImportModalOpen(false); setImportResult(null) }} className="text-gray-500 hover:text-gray-700">
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+            
+            <div className="space-y-4">
+              <p className="text-sm text-gray-600">
+                Selecione um arquivo Excel (.xlsx) ou CSV contendo as colunas: <strong>Nome</strong>, <strong>CPF</strong> e <strong>Telefone</strong> (opcional).
+              </p>
+              
+              <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-indigo-500 transition-colors relative">
+                <input
+                  type="file"
+                  accept=".xlsx, .xls, .csv"
+                  onChange={handleImport}
+                  disabled={loading}
+                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                  id="file-upload"
+                />
+                <div className="flex flex-col items-center justify-center pointer-events-none">
+                  <Upload className="w-12 h-12 text-gray-400 mb-2" />
+                  <span className="text-sm font-medium text-gray-700">
+                    {loading ? 'Processando...' : 'Clique para selecionar o arquivo'}
+                  </span>
+                </div>
+              </div>
+
+              {importResult && (
+                <div className="mt-4 p-4 bg-gray-50 rounded-md text-sm">
+                  <p className="font-medium mb-2">Resultado da Importação:</p>
+                  <ul className="space-y-1">
+                    <li className="text-gray-700">Total de linhas: {importResult.total}</li>
+                    <li className="text-green-600">Sucesso: {importResult.success}</li>
+                    <li className="text-red-600">Falhas/Ignorados: {importResult.failed}</li>
+                  </ul>
+                </div>
+              )}
+
+              <div className="flex justify-end gap-2 mt-4">
+                 <Button variant="outline" onClick={() => { setIsImportModalOpen(false); setImportResult(null) }}>
+                   Fechar
+                 </Button>
+              </div>
+            </div>
           </Card>
         </div>
       )}

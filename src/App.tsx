@@ -139,7 +139,7 @@ function App() {
         <div className="min-h-screen bg-gray-50 flex flex-col">
           <Toaster richColors position="top-right" />
           <Navigation />
-          <main className="flex-1 pb-20 sm:pb-0">
+          <main className="flex-1 sm:pb-0">
             <Routes>
               <Route path="/" element={<Register />} />
               <Route path="/participant" element={<ParticipantLogin />} />
@@ -161,7 +161,7 @@ function App() {
               } />
             </Routes>
           </main>
-          <BottomNavigation />
+          {/* <BottomNavigation /> - Ocultado para modo Kiosk */}
           
           <footer className="bg-white border-t border-gray-200 mt-auto hidden sm:block">
             <div className="max-w-7xl mx-auto py-6 px-4 overflow-hidden sm:px-6 lg:px-8">

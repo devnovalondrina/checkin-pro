@@ -25,6 +25,7 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   return <>{children}</>
 }
 
+/* 
 const BottomNavigation = () => {
   const { isAuthenticated, logout } = useAuth()
   const location = useLocation()
@@ -69,6 +70,7 @@ const BottomNavigation = () => {
     </div>
   )
 }
+*/
 
 const Navigation = () => {
   const { isAuthenticated, logout } = useAuth()

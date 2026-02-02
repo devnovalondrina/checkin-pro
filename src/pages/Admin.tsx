@@ -314,6 +314,38 @@ export default function Admin() {
     setShowScanner(false)
   }
 
+  const handleClearList = async () => {
+    if (!selectedEventId) return
+    if (registrations.length === 0) {
+      toast.warning('A lista já está vazia.')
+      return
+    }
+
+    const confirmMessage = `ATENÇÃO: Isso removerá TODOS os ${registrations.length} participantes deste evento.\n\nEsta ação não pode ser desfeita. Deseja continuar?`
+    if (!window.confirm(confirmMessage)) return
+
+    // Double check confirmation for safety
+    if (!window.confirm('Tem certeza absoluta? Digite OK para confirmar.')) return
+
+    setLoading(true)
+    try {
+      const { error } = await supabase
+        .from('registrations')
+        .delete()
+        .eq('event_id', selectedEventId)
+
+      if (error) throw error
+
+      toast.success('Lista de participantes limpa com sucesso!')
+      setRegistrations([])
+    } catch (error) {
+      console.error('Error clearing list:', error)
+      toast.error('Erro ao limpar a lista.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const exportToExcel = async () => {
     try {
       setLoading(true)
@@ -459,6 +491,13 @@ export default function Admin() {
                 title="Importar Participantes (Excel)"
               >
                 <Upload className="w-5 h-5" />
+              </Button>
+              <Button 
+                onClick={handleClearList}
+                className="p-2 bg-red-600 hover:bg-red-700 border-red-600 text-white"
+                title="Limpar Lista de Participantes"
+              >
+                <Trash className="w-5 h-5" />
               </Button>
               <Button 
                 onClick={exportToExcel}
